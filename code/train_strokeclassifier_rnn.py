@@ -22,7 +22,7 @@ def read_all_jsons(folder_path):
                 json_data.append(data)
                 poses_per_swing[filename] = json_data
     return poses_per_swing
-folder_path = "data/dataset/Tennis Player Actions Dataset for Human Pose Estimation/annotations"
+folder_path = "/mnt/crucial1tb_ssd/cs230/data/dataset/Tennis Player Actions Dataset for Human Pose Estimation/annotations"
 poses_per_swing = read_all_jsons(folder_path)
 
 X = []
@@ -35,13 +35,13 @@ for key in poses_per_swing:
         for i in range(idx,idx+time_step_size):
             temp_X.append(poses_per_swing[key][0]["annotations"][i]["keypoints"])
         X.append(temp_X)
-        if poses_per_swing[key][0]["annotations"][idx]["category_id"] == 5:
+        if poses_per_swing[key][0]["annotations"][idx]["category_id"] == 5: # backhand
             Y.append(0)
-        if poses_per_swing[key][0]["annotations"][idx]["category_id"] == 6:
+        if poses_per_swing[key][0]["annotations"][idx]["category_id"] == 6: # forehand
             Y.append(1)
-        if poses_per_swing[key][0]["annotations"][idx]["category_id"] == 7:
+        if poses_per_swing[key][0]["annotations"][idx]["category_id"] == 7: # ready position
             Y.append(2)
-        if poses_per_swing[key][0]["annotations"][idx]["category_id"] == 8:
+        if poses_per_swing[key][0]["annotations"][idx]["category_id"] == 8: # serve
             Y.append(3)
         #Y.append(poses_per_swing[key][0]["annotations"][idx]["category_id"])
         #print(annotation)
@@ -49,27 +49,14 @@ for key in poses_per_swing:
 X = np.array(X)
 mean_X = np.mean(X, axis=0)
 std_X = np.std(X, axis=0)
-np.save("mean_X.npy", mean_X)
-np.save("std_X.npy", std_X)
+np.save("models/means/mean_X.npy", mean_X)
+np.save("models/means/std_X.npy", std_X)
 
 X = (X - np.mean(X, axis=0)) / np.std(X, axis=0)
 Y = np.array(Y)
 
 print("Checking for NaN values in X:", np.isnan(X).any())
 print("Checking for infinite values in X:", np.isinf(X).any())
-
-
-"""
-
-XX = np.array([x+1 for x in range(45)])
-XX = XX.reshape(15,3,1)
-
-YY = []
-for x in XX:
-    YY.append(x.sum())
-YY = np.array(YY)
-print(XX)
-print(YY) """
 
 def get_model():
     model = Sequential()
@@ -96,12 +83,10 @@ log_dir = "logs/classification/" + datetime.datetime.now().strftime("%Y%m%d-%H%M
 tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
 early_stopping_callback = EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=False)
 _ = model.fit(X, Y, epochs=epochs, validation_split=0.1, batch_size=2, verbose=1, callbacks=[CustomCallback(), tensorboard_callback, early_stopping_callback])
-model.save("model.keras")
+model.save("models/classification/stroke_classification.keras")
 
 
 test_output = model.predict(X[0:1], verbose=1)  # Use a batch of inputs for prediction
 predicted_class = np.argmax(test_output, axis=1)
 print(test_output)
 print(predicted_class)
-
-np.save("teste_X.npy", X[0:1])

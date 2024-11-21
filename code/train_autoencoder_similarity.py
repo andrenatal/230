@@ -14,6 +14,11 @@ from tensorflow.keras.layers import Input, LSTM, Dense, Dropout, RepeatVector, T
 from keras.utils import plot_model
 from keras.losses import CosineSimilarity
 
+class CustomCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        keys = list(logs.keys())
+        print("\n End epoch {} of training; got log keys: {} \n".format(epoch, keys))
+
 def read_all_jsons(folder_path):
     poses_per_swing = {}
     for filename in os.listdir(folder_path):
@@ -25,13 +30,25 @@ def read_all_jsons(folder_path):
                 json_data.append(data)
                 poses_per_swing[filename] = json_data
     return poses_per_swing
-folder_path = "data/dataset/Tennis Player Actions Dataset for Human Pose Estimation/annotations"
+folder_path = "/mnt/crucial1tb_ssd/cs230/data/dataset/Tennis Player Actions Dataset for Human Pose Estimation/annotations"
 poses_per_swing = read_all_jsons(folder_path)
 
 def normalize_input(input_data, mean_X, std_X):
     return (input_data - mean_X) / std_X
 
 swings = ["backhand.json", "forehand.json", "ready_position.json", "serve.json"]
+
+def get_autoencoder(input_shape):
+    inputs = Input(shape=input_shape)
+    encoded = LSTM(100, activation='relu', return_sequences=False, dropout=0.1)(inputs)
+    encoded = Dropout(0.1)(encoded)
+    encoded = Dense(input_shape[1], activation='relu')(encoded)
+    decoded = RepeatVector(input_shape[0])(encoded)
+    decoded = LSTM(100, dropout=0.1,  activation='relu', return_sequences=True)(decoded)
+    decoded = TimeDistributed(Dense(input_shape[1], activation="sigmoid"))(decoded)
+    autoencoder = Model(inputs, decoded)
+    autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0), loss="mse", metrics=['accuracy'])
+    return autoencoder
 
 for swing in swings:
     X = []
@@ -50,26 +67,10 @@ for swing in swings:
     X = normalize_input(X, mean_X, std_X)
 
     """ # Train the autoencoder model """
-    np.save("mean_X_backhand.npy", mean_X) ## TODO: add the normalization values to the model
-    np.save("std_X_backhand.npy", std_X)
+    np.save("models/means/mean_X_" + swing + ".npy", mean_X) ## TODO: add the normalization values to the model
+    np.save("models/means/std_X_" + swing + ".npy", std_X)
     print("Checking for NaN values in X:", np.isnan(X).any())
     print("Checking for infinite values in X:", np.isinf(X).any())
-    def get_autoencoder(input_shape):
-        inputs = Input(shape=input_shape)
-        encoded = LSTM(100, activation='relu', return_sequences=False, dropout=0.1)(inputs)
-        encoded = Dropout(0.1)(encoded)
-        encoded = Dense(input_shape[1], activation='relu')(encoded)
-        decoded = RepeatVector(input_shape[0])(encoded)
-        decoded = LSTM(100, dropout=0.1,  activation='relu', return_sequences=True)(decoded)
-        decoded = TimeDistributed(Dense(input_shape[1], activation="sigmoid"))(decoded)
-        autoencoder = Model(inputs, decoded)
-        autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0), loss=CosineSimilarity(), metrics=['accuracy'])
-        return autoencoder
-
-    class CustomCallback(tf.keras.callbacks.Callback):
-        def on_epoch_end(self, epoch, logs=None):
-            keys = list(logs.keys())
-            print("\n End epoch {} of training; got log keys: {} \n".format(epoch, keys))
 
     log_dir = "logs/autoencoder/"
     tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
@@ -78,19 +79,25 @@ for swing in swings:
     tf.keras.backend.clear_session()
     input_shape = (X.shape[1], X.shape[2])
     autoencoder = get_autoencoder(input_shape)
+    print("Autoencoder model summary:")
     autoencoder.summary()
     autoencoder.fit(X, X, epochs=epochs, batch_size=2, validation_split=0.2, callbacks=[CustomCallback(), tensorboard_callback, early_stopping_callback])
-    #autoencoder.fit(X, X, epochs=epochs, batch_size=2, callbacks=[CustomCallback(), tensorboard_callback, early_stopping_callback])
+    autoencoder.save("models/autoencoder/" + swing + '.autoencoder.keras')
 
+    print("Encoder model summary:")
     encoder = Model(autoencoder.input, autoencoder.layers[3].output)
-    encoder.save('autoencoder_backhand.keras')
+    encoder.summary()
+    encoder.save("models/encoder/" + swing + '.encoder.keras')
+    # Use the layers of the encoder model to generate the embeddings
+    embeddings = encoder.predict(X)
+    np.save("models/embeddings/" + swing + '.encoder.embeddings.npy', embeddings)
 
 
-    # Use the layers of the classifcation model as embeddings
-    classification_model = load_model('model.keras')
+    # Use the layers of the classifcation model to generate the embeddings
+    classification_model = load_model('models/classification/stroke_classification.keras')
     similarity_model = Model(inputs=classification_model.inputs, outputs=classification_model.layers[-2].output)
     # Summary of the new model
     similarity_model.summary()
     # Extract embeddings from the training data
     embeddings = similarity_model.predict(X)
-    np.save(swing + '.embeddings.npy', embeddings)
+    np.save("models/embeddings/" + swing + '.classification.embeddings.npy', embeddings)
