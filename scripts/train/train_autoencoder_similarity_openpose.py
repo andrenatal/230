@@ -13,11 +13,7 @@ from tensorflow.keras.models import load_model,Model
 from tensorflow.keras.layers import Input, LSTM, Dense, Dropout, RepeatVector, TimeDistributed
 from keras.utils import plot_model
 from keras.losses import CosineSimilarity
-
-class CustomCallback(tf.keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        keys = list(logs.keys())
-        print("\n End epoch {} of training; got log keys: {} \n".format(epoch, keys))
+from customcallback import CustomCallback
 
 def read_all_jsons(folder_path):
     poses_per_swing = {}
@@ -40,11 +36,11 @@ swings = ["backhand.json", "forehand.json", "ready_position.json", "serve.json"]
 
 def get_autoencoder(input_shape):
     inputs = Input(shape=input_shape)
-    encoded = LSTM(100, activation='relu', return_sequences=False, dropout=0.1)(inputs)
-    encoded = Dropout(0.1)(encoded)
+    encoded = LSTM(24, activation='relu', return_sequences=False, dropout=0.1)(inputs)
+    encoded = Dropout(0.2)(encoded)
     encoded = Dense(input_shape[1], activation='relu')(encoded)
     decoded = RepeatVector(input_shape[0])(encoded)
-    decoded = LSTM(100, dropout=0.1,  activation='relu', return_sequences=True)(decoded)
+    decoded = LSTM(24, dropout=0.2,  activation='relu', return_sequences=True)(decoded)
     decoded = TimeDistributed(Dense(input_shape[1], activation="sigmoid"))(decoded)
     autoencoder = Model(inputs, decoded)
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001, clipnorm=1.0), loss="mse", metrics=['accuracy'])
@@ -72,7 +68,7 @@ for swing in swings:
     print("Checking for NaN values in X:", np.isnan(X).any())
     print("Checking for infinite values in X:", np.isinf(X).any())
 
-    log_dir = "logs/autoencoder/"
+    log_dir = "logs/autoencoder/" + swing + "/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
     early_stopping_callback = EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=False)
 
