@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoveNet Inference</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <script src="npyjs.js"></script>
+    <script src=" https://cdn.jsdelivr.net/npm/mathjs@14.0.0/lib/browser/math.min.js "></script>
+</head>
+
+<body>
+    <h1>MoveNet Inference</h1>
+    <script>
+
+        async function fetchCSV(url) {
+            const response = await fetch(url);
+            const csvText = await response.text();
+            return csvText;
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            const headers = lines[0].split(',');
+            const data = lines.slice(1).map(line => line.split(',').map(parseFloat));
+            return data;
+        }
+
+        async function loadCSVIntoTensor(url) {
+            const csvText = await fetchCSV(url);
+            const data = parseCSV(csvText);
+            const tensor_tf = tf.tensor(data);
+            const tensor_onnx = new ort.Tensor('float32', new Float32Array(data.flat()), [data.length, data[0].length]);
+            return { tensor_tf, tensor_onnx };
+        }
+
+        async function loadModel(url) {
+            return await tf.loadLayersModel(url);
+        }
+
+        async function loadNpy(url) {
+            let n = new npyjs();
+            let data = await n.load(url);
+            return data;
+        }
+
+        // TODO: Already normalize the training embeddings on loading
+        function l2Normalization(matrix) {
+            let norm = math.matrix();
+            for (let i = 0; i < matrix.size()[0]; i++) {
+                const row = math.subset(matrix, math.index(i, math.range(0, matrix.size()[1])));
+                let squares = row.map(vector => vector * vector);
+                let sum = math.sum(squares);
+                norm = math.concat(norm, [sum]);
+            }
+            norm = math.map(norm, math.sqrt);
+            norm = math.reshape(norm, [norm.size()[0], 1]);
+            const normalized_matrix = math.dotDivide(matrix, norm);
+            return normalized_matrix;
+        }
+
+        function cosineSimilarity(vector1, vector2) {
+            let Y_normalized = math.matrix(Array.from(vector2));
+            Y_normalized = math.reshape(Y_normalized, [19, 26]);
+            Y_normalized = l2Normalization(Y_normalized);
+
+            let X_normalized = math.matrix(Array.from(vector1));
+            X_normalized = math.reshape(X_normalized, [1, 26]);
+            X_normalized = l2Normalization(X_normalized);
+
+            let Y_normalized_tranpose = math.transpose(Y_normalized);
+            const dotproduct = math.multiply(X_normalized, Y_normalized_tranpose);
+            return dotproduct;
+        }
+
+        async function main() {
+            const classificationModel = await loadModel('/models/tfjs/classification/model.json');
+            const sessionSimilarityModel = await ort.InferenceSession.create('/models/onnx/movenetbackhandalcaraz_encoder/model.onnx');
+            const training_embeddings = await loadNpy('/models/movenet/embeddings/movenetbackhandalcaraz.encoder.embeddings.npy');
+            const csvUrl = ['/app/backhand_001.csv', '/app/forehand_010.csv', '/app/serve_001.csv'];
+
+            csvUrl.forEach(async element => {
+                console.log('Processing:', element);
+
+                let tensors = await loadCSVIntoTensor(element);
+                const tensor_tf = tensors.tensor_tf.reshape([1, 30, 26]);
+
+                const prediction = classificationModel.predict(tensor_tf);
+                prediction.print();
+                let predicted_class = tf.argMax(prediction, 1).dataSync()[0];
+                let score = tf.max(prediction, 1).dataSync()[0] * 100
+                console.log("Classifier output:", predicted_class, "with a score of", score, "%")
+
+                const tensor_onnx = tensors.tensor_onnx.reshape([1, 30, 26]);
+                const inputs = { input: tensor_onnx };
+                const input_embeddings = await sessionSimilarityModel.run(inputs);
+                console.log(input_embeddings.output.data, training_embeddings);
+                const cosine_sim = cosineSimilarity(input_embeddings.output.data, training_embeddings.data);
+                const average_cosine_sim = math.mean(cosine_sim);
+                console.log("Average cosine similarity:", average_cosine_sim);
+            });
+        }
+
+        main();
+    </script>
+</body>
+
+</html>
