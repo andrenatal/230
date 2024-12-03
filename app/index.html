@@ -15,6 +15,8 @@
     <h1>MoveNet Inference</h1>
     <script>
 
+        const pose_classes = ["backhand", "forehand", "neutral", "serve"];
+
         async function fetchCSV(url) {
             const response = await fetch(url);
             const csvText = await response.text();
@@ -32,7 +34,7 @@
             const csvText = await fetchCSV(url);
             const data = parseCSV(csvText);
             const tensor_tf = tf.tensor(data);
-            const tensor_onnx = new ort.Tensor('float32', new Float32Array(data.flat()), [data.length, data[0].length]);
+            const tensor_onnx = new ort.Tensor('float32', new Float32Array(data.flat()), [30, 26]);
             return { tensor_tf, tensor_onnx };
         }
 
@@ -63,7 +65,7 @@
 
         function cosineSimilarity(vector1, vector2) {
             let Y_normalized = math.matrix(Array.from(vector2));
-            Y_normalized = math.reshape(Y_normalized, [19, 26]);
+            Y_normalized = math.reshape(Y_normalized, [(vector2.length / 26), 26]);
             Y_normalized = l2Normalization(Y_normalized);
 
             let X_normalized = math.matrix(Array.from(vector1));
@@ -76,27 +78,54 @@
         }
 
         async function main() {
-            const classificationModel = await loadModel('/models/tfjs/classification/model.json');
-            const sessionSimilarityModel = await ort.InferenceSession.create('/models/onnx/movenetbackhandalcaraz_encoder/model.onnx');
-            const training_embeddings = await loadNpy('/models/movenet/embeddings/movenetbackhandalcaraz.encoder.embeddings.npy');
-            const csvUrl = ['/app/backhand_001.csv', '/app/forehand_010.csv', '/app/serve_001.csv'];
+            const classificationModel = await loadModel('/models/tfjs/classification/357/model.json');
+
+            const sessionSimilarityBackhand = await ort.InferenceSession.create('/models/onnx/backhandalcaraz003_encoder/model.onnx');
+            const training_embeddings_backhand = await loadNpy('/models/movenet/embeddings/backhandalcaraz003.encoder.embeddings.npy');
+
+            const sessionSimilarityForehand = await ort.InferenceSession.create('/models/onnx/forehandalcaraz003_encoder/model.onnx');
+            const training_embeddings_forehand = await loadNpy('/models/movenet/embeddings/forehandalcaraz003.encoder.embeddings.npy');
+
+            const sessionSimilarityServe = await ort.InferenceSession.create('/models/onnx/servealcaraz003_encoder/model.onnx');
+            const training_embeddings_serve = await loadNpy('/models/movenet/embeddings/servealcaraz003.encoder.embeddings.npy');
+
+            const csvUrl = [
+                '/app/test_shots/backhand_1.csv',
+                '/app/test_shots/forehand_14.csv',
+                '/app/test_shots/forehand_7.csv',
+                '/app/test_shots/serve_8.csv',
+                '/app/test_shots/forehand_1.csv',
+                '/app/test_shots/debug_1.csv'
+            ];
 
             csvUrl.forEach(async element => {
                 console.log('Processing:', element);
-
                 let tensors = await loadCSVIntoTensor(element);
                 const tensor_tf = tensors.tensor_tf.reshape([1, 30, 26]);
-
                 const prediction = classificationModel.predict(tensor_tf);
                 prediction.print();
                 let predicted_class = tf.argMax(prediction, 1).dataSync()[0];
                 let score = tf.max(prediction, 1).dataSync()[0] * 100
-                console.log("Classifier output:", predicted_class, "with a score of", score, "%")
-
+                console.log("Classifier output:", pose_classes[predicted_class], "with a score of", score, "%", " for ", element);
                 const tensor_onnx = tensors.tensor_onnx.reshape([1, 30, 26]);
                 const inputs = { input: tensor_onnx };
+                let training_embeddings;
+                let sessionSimilarityModel;
+                if (pose_classes[predicted_class].includes('backhand')) {
+                    training_embeddings = training_embeddings_backhand;
+                    sessionSimilarityModel = sessionSimilarityBackhand;
+                } else if (pose_classes[predicted_class].includes('forehand')) {
+                    training_embeddings = training_embeddings_forehand;
+                    sessionSimilarityModel = sessionSimilarityForehand;
+                } else if (pose_classes[predicted_class].includes('serve')) {
+                    training_embeddings = training_embeddings_serve;
+                    sessionSimilarityModel = sessionSimilarityServe;
+                } else if (pose_classes[predicted_class].includes('neutral')) {
+                    console.log("Neutral pose detected, skipping similarity calculation");
+                    return;
+                }
+
                 const input_embeddings = await sessionSimilarityModel.run(inputs);
-                console.log(input_embeddings.output.data, training_embeddings);
                 const cosine_sim = cosineSimilarity(input_embeddings.output.data, training_embeddings.data);
                 const average_cosine_sim = math.mean(cosine_sim);
                 console.log("Average cosine similarity:", average_cosine_sim);
