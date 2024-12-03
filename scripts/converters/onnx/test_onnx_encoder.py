@@ -3,11 +3,13 @@ import numpy as np
 from tensorflow.keras.models import load_model,Model
 from sklearn.metrics.pairwise import cosine_similarity
 
-file_path = ["/media/4tbdrive/engines/cs230/app/backhand_001.csv", "/media/4tbdrive/engines/cs230/app/forehand_010.csv", "/media/4tbdrive/engines/cs230/app/serve_001.csv"]
+file_path = ["/media/4tbdrive/engines/cs230/app/test_shots/backhand_1.csv",
+             "/media/4tbdrive/engines/cs230/app/test_shots/forehand_14.csv",
+             "/media/4tbdrive/engines/cs230/app/test_shots/serve_8.csv"]
 
-sess = ort.InferenceSession("/media/4tbdrive/engines/cs230/models/onnx/movenetbackhandalcaraz_encoder/model.onnx", providers=["CUDAExecutionProvider"])
-encoder_model = load_model(f'/media/4tbdrive/engines/cs230/models/movenet/encoder/movenetbackhandalcaraz.encoder.keras')
-training_embeddings = np.load(f'/media/4tbdrive/engines/cs230/models/movenet/embeddings/movenetbackhandalcaraz.encoder.embeddings.npy')
+sess = ort.InferenceSession("/media/4tbdrive/engines/cs230/models/onnx/backhandalcaraz003_encoder/model.onnx", providers=["CUDAExecutionProvider"])
+encoder_model = load_model(f'/media/4tbdrive/engines/cs230/models/movenet/encoder/backhandalcaraz003.encoder.keras')
+training_embeddings = np.load(f'/media/4tbdrive/engines/cs230/models/movenet/embeddings/backhandalcaraz003.encoder.embeddings.npy')
 
 for file in file_path:
     print("Testing file:", file)
