@@ -19,7 +19,7 @@ from tools.customcallback import CustomCallback
 
 time_step_size = 30
 epochs = 1000
-data_loader = DataLoader(time_step_size)
+data_loader = DataLoader()
 pose_type = "movenet" # "movenet" or "openpose"
 recurrent_units = 26
 dropout = 0.02
@@ -30,7 +30,7 @@ validation_split = 0.2
 learning_rate = 0.0001
 
 if pose_type == "movenet":
-    data_loader.load_data_movenet() # time_step_size always 30
+    data_loader.load_data_movenet("train") # time_step_size always 30
 else:
     data_loader.load_data_openpose(time_step_size)
 
@@ -47,7 +47,7 @@ def get_autoencoder(input_shape):
     return autoencoder
 
 swings = ["backhand", "forehand", "serve"]
-players = ["alcaraz", "federer", "nadal"]
+players = ["sinner002", "sinne005"]
 for swing, player in list(itertools.product(swings, players)):
     X = []
     if len(data_loader.poses_per_swing_per_player[player][swing]) == 0: continue;

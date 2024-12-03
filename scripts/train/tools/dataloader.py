@@ -48,11 +48,11 @@ class DataLoader:
         print("Checking for NaN values in X:", np.isnan(self.X).any())
         print("Checking for infinite values in X:", np.isinf(self.X).any())
 
-    def load_data_movenet(self):
+    def load_data_movenet(self, dataset):
         X = []
         Y = []
         self.poses_per_swing_per_player = {}
-        folder_path = "/media/4tbdrive/engines/tennis_shot_recognition/dataset"
+        folder_path = "/media/4tbdrive/engines/cs230/dataset/" + dataset
         for dirpath, dirnames, filenames in os.walk(folder_path):
             for dir in dirnames:
                 if dir == "shots":
@@ -65,9 +65,9 @@ class DataLoader:
                     "neutral": [],
                     "serve" : []
                 }
-                for filename in os.listdir(os.path.join(dirpath, dir+"/shots")):
+                for filename in os.listdir(os.path.join(dirpath, dir)):
                     if filename.endswith('.csv'):
-                        file_path = os.path.join(dirpath, dir+"/shots", filename)
+                        file_path = os.path.join(dirpath, dir, filename)
                         with open(file_path, 'r') as file:
                             temp_X = []
                             for line in file:
