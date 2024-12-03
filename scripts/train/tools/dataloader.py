@@ -52,7 +52,7 @@ class DataLoader:
         X = []
         Y = []
         self.poses_per_swing_per_player = {}
-        folder_path = "/media/4tbdrive/engines/cs230/dataset/" + dataset
+        folder_path = "./dataset/" + dataset
         for dirpath, dirnames, filenames in os.walk(folder_path):
             for dir in dirnames:
                 if dir == "shots":

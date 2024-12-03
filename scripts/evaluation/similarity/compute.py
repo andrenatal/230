@@ -1,6 +1,6 @@
 import sys
-sys.path.append("/media/4tbdrive/engines/cs230/scripts/train/")
-sys.path.append("/media/4tbdrive/engines/cs230/scripts/")
+sys.path.append("./scripts/train/")
+sys.path.append("./scripts/")
 
 import random
 import tensorflow as tf
@@ -12,6 +12,7 @@ from tools.dataloader import DataLoader
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import norm
 
 classification_model = load_model('models/movenet/classification/stroke_classification_357.keras')
 data_loader_test = DataLoader()
@@ -39,28 +40,40 @@ def compute_similarity(reference_player, players, players_type):
         if os.path.exists(f'models/movenet/encoder/{swing}{reference_player}.encoder.keras'):
             encoder_model = load_model(f'models/movenet/encoder/{swing}{reference_player}.encoder.keras')
             input_embeddings = encoder_model.predict(input, verbose=0)
-            training_embeddings = np.load(f'/media/4tbdrive/engines/cs230/models/movenet/embeddings/{swing}{reference_player}.encoder.embeddings.npy')
+            training_embeddings = np.load(f'./models/movenet/embeddings/{swing}{reference_player}.encoder.embeddings.npy')
             similarity_scores = cosine_similarity(input_embeddings, training_embeddings)
             score = np.mean(similarity_scores)
             scores.append(score)
             print("Similarity: Average of the scores:", score, "for", player, swing, "with", reference_player, "using encoder.")
 
     scores_array = np.array(scores)
-    percentile_bins = np.percentile(scores_array, [0, 25, 50, 75, 100])
-    percentile_labels = ['0th Percentile', '25th Percentile', '50th Percentile', '75th Percentile', '100th Percentile']
-    # Bin the scores based on percentiles
-    binned_scores = np.digitize(scores_array, percentile_bins)
-    # Count the frequency of scores in each bin
-    count_scores_per_bin = [np.sum(binned_scores == i) for i in range(1, len(percentile_bins)+1)]
-
-    # Plotting the frequency of scores in each percentile bin
+    # Plotting the histogram of the scores
     plt.figure(figsize=(10, 6))
-    sns.barplot(x=percentile_labels, y=count_scores_per_bin)  # Skip the first bin as it is below the 0th percentile
-    plt.title('Frequency of Similarity Scores in Each Percentile for ' + players_type + ' and ' + reference_player)
-    plt.xlabel('Percentile Range')
-    plt.ylabel('Frequency')
-    plt.ylim(0, max(count_scores_per_bin) + 1)  # Adjust y-axis limit for better visualization
-    plt.savefig(f'percentile_frequency_{players_type}_and_{reference_player}.png', dpi=300)
+    sns.histplot(scores_array, bins=30, kde=True, color='blue')
+
+    # Calculate mean and standard deviation
+    mean = np.mean(scores_array)
+    std_dev = np.std(scores_array)
+    min_score = np.min(scores_array)
+    max_score = np.max(scores_array)
+
+    # Plot the normal distribution curve
+    x = np.linspace(min(scores_array), max(scores_array), 100)
+    plt.plot(x, norm.pdf(x, mean, std_dev), color='red', label='Normal Distribution')
+
+    # Add mean and standard deviation lines
+    plt.axvline(mean, color='green', linestyle='dashed', linewidth=1, label=f'Mean: {mean:.2f}')
+    plt.axvline(mean + std_dev, color='orange', linestyle='dashed', linewidth=1, label=f'+1 Std Dev: {mean + std_dev:.2f}')
+    plt.axvline(mean - std_dev, color='orange', linestyle='dashed', linewidth=1, label=f'-1 Std Dev: {mean - std_dev:.2f}')
+    plt.axvline(min_score, color='purple', linestyle='dashed', linewidth=1, label=f'Min: {min_score:.2f}')
+    plt.axvline(max_score, color='brown', linestyle='dashed', linewidth=1, label=f'Max: {max_score:.2f}')
+
+    plt.title('Distribution of Similarity Scores for ' + players_type + ' and ' + reference_player)
+    plt.xlabel('Scores')
+    plt.ylabel('Density')
+    plt.legend()
+    plt.savefig(f'distribution_{players_type}_and_{reference_player}.png', dpi=300)
+    plt.show()
 
 for reference_player in reference_players:
     compute_similarity(reference_player, pro_players, "pro-players")
