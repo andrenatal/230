@@ -12,14 +12,14 @@ import itertools
 from tools.dataloader import DataLoader
 data_loader = DataLoader()
 
-classification_model = load_model('models/movenet/classification/stroke_classification_351_withnadal.keras')
-data_loader.load_data_movenet() # time_step_size always 30
+classification_model = load_model('models/movenet/classification/stroke_classification_357.keras')
+data_loader.load_data_movenet("test") # time_step_size always 30
 
 swings = ["backhand", "forehand", "neutral", "serve"]
-players = ["roland"]
-reference_player = "nadal"
+players = ["sinner001", "sinnerbackhand001"]
+reference_player = "alcaraz003"
 
-for swing, player in list(itertools.product(["backhand", "forehand"], players)):
+for swing, player in list(itertools.product(["backhand", "forehand", "serve"], players)):
     print("\n")
     print("Retrieving a random", swing, "from", player)
 
@@ -43,8 +43,8 @@ for swing, player in list(itertools.product(["backhand", "forehand"], players)):
 
     # test the similarity of the input to the training data with the encoder model
     scores = []
-    encoder_model = load_model(f'models/movenet/encoder/movenet{swings[predicted_class[0]]}{reference_player}.encoder.keras')
+    encoder_model = load_model(f'models/movenet/encoder/{swings[predicted_class[0]]}{reference_player}.encoder.keras')
     input_embeddings = encoder_model.predict(input, verbose=0)
-    training_embeddings = np.load(f'/media/4tbdrive/engines/cs230/models/movenet/embeddings/movenet{swings[predicted_class[0]]}{reference_player}.encoder.embeddings.npy')
+    training_embeddings = np.load(f'/media/4tbdrive/engines/cs230/models/movenet/embeddings/{swings[predicted_class[0]]}{reference_player}.encoder.embeddings.npy')
     similarity_scores = cosine_similarity(input_embeddings, training_embeddings)
     print("Similarity: Average of the scores:", np.mean(similarity_scores), "for", swings[predicted_class[0]], "with", reference_player, "using encoder.")
