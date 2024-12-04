@@ -1,7 +1,6 @@
 import sys
-sys.path.append("/media/4tbdrive/engines/cs230/scripts/train/")
-sys.path.append("/media/4tbdrive/engines/cs230/scripts/")
-sys.path.append("/media/4tbdrive/engines/cs230/")
+sys.path.append("scripts/train/")
+sys.path.append("scripts/")
 
 import random
 import tensorflow as tf
@@ -9,8 +8,7 @@ from tensorflow.keras.models import load_model,Model
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import itertools
-from sklearn.metrics import f1_score
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tools.dataloader import DataLoader
@@ -40,19 +38,21 @@ def compute_f1(players, players_type):
             y_pred.append(predicted_class[0])
     print("Total predictions:", total_preds)
     f1 = f1_score(y_true, y_pred, average='weighted')
+    accuracy = accuracy_score(y_true, y_pred)
     cm = confusion_matrix(y_true, y_pred)
     print("Confusion Matrix:\n", cm)
+    print("Accuracy: {:.2f}%".format(accuracy * 100))
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=swings, yticklabels=swings)
     plt.xlabel('Predicted')
     plt.ylabel('True')
-    plt.title('Confusion Matrix. {} F1 Score: {:.2f}'.format(players_type, f1))
+    plt.title('Confusion Matrix. {} F1 Score: {:.2f}, Accuracy: {:.2f}%'.format(players_type, f1, accuracy * 100))
     plt.savefig(f'confusion_matrix_{players_type}.png', dpi=300)  # Save as PNG with high resolution
     plt.close()  # Close the plot to free up memory
-    return f1
+    return f1, accuracy
 
 # we use only f1 score as the dataset is imbalanced
-print("F1 Score for pro players:", compute_f1(pro_players, "pro-players"))
-print("F1 Score for amateur players:", compute_f1(amateur_players, "amateur-players"))
-print("F1 Score for all players:", compute_f1(pro_players + amateur_players, "all-players"))
+print("F1 Score and accuracy for pro players:", compute_f1(pro_players, "pro-players"))
+print("F1 Score and accuracy for amateur players:", compute_f1(amateur_players, "amateur-players"))
+print("F1 Score and accuracy for all players:", compute_f1(pro_players + amateur_players, "all-players"))
 
