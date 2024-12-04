@@ -1,5 +1,3 @@
 [submodule "tfjs-models"]
 	path = tfjs-models
-	url = git@github.com:andrenatal/tfjs-models.git
-[submodule "submodule_name"]
 	url = https://github.com/andrenatal/tfjs-models.git
