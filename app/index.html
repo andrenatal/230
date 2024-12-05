@@ -10,10 +10,42 @@
     <script src="npyjs.js"></script>
     <script src=" https://cdn.jsdelivr.net/npm/mathjs@14.0.0/lib/browser/math.min.js "></script>
 </head>
+<style>
+    body {
+        margin: 0;
+        background-color: black;
+        color: gray;
+    }
+
+    #main {
+        margin: 0;
+        position: relative;
+    }
+
+    #output {
+        width: 50%;
+        height: 10rem;
+        background-color: black;
+        color: gray;
+    }
+</style>
 
 <body>
-    <h1>AI Tennis Coach demo page.</h1>
+    <h1>AI Tennis Coach.</h1>
     <script>
+
+
+        function checkBrowser() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const isChrome = /chrome/.test(userAgent) && /google inc/.test(navigator.vendor.toLowerCase());
+
+            if (!isChrome) {
+                alert('This application only works on Google Chrome.');
+                return false;
+            }
+
+            return true;
+        }
 
         const pose_classes = ["backhand", "forehand", "neutral", "serve"];
 
@@ -98,7 +130,7 @@
                 '/test_shots/debug_1.csv'
             ];
 
-            csvUrl.forEach(async element => {
+            for (const element of csvUrl) {
                 console.log('Processing:', element);
                 let tensors = await loadCSVIntoTensor(element);
                 const tensor_tf = tensors.tensor_tf.reshape([1, 30, 26]);
@@ -107,6 +139,7 @@
                 let predicted_class = tf.argMax(prediction, 1).dataSync()[0];
                 let score = tf.max(prediction, 1).dataSync()[0] * 100
                 console.log("Classifier output:", pose_classes[predicted_class], "with a score of", score, "%", " for ", element);
+                document.getElementById('output').innerHTML += prediction;
                 const tensor_onnx = tensors.tensor_onnx.reshape([1, 30, 26]);
                 const inputs = { input: tensor_onnx };
                 let training_embeddings;
@@ -125,19 +158,27 @@
                     sessionSimilarityModel = sessionSimilarityServe;
                 } else if (pose_classes[predicted_class].includes('neutral')) {
                     console.log("Neutral pose detected, skipping similarity calculation");
-                    return;
+                    continue;
                 }
 
                 const input_embeddings = await sessionSimilarityModel.run(inputs);
                 const cosine_sim = cosineSimilarity(input_embeddings.output.data, training_embeddings.data);
+                document.getElementById('output').innerHTML += cosine_sim;
                 const average_cosine_sim = math.mean(cosine_sim);
                 console.log("Average cosine similarity:", average_cosine_sim);
-            });
-        }
+            };
 
+            if (!checkBrowser()) {
+                document.getElementById('incompatible').innerHTML = "Your browser is not compatible with the AI Tennis Coach. Please use Google Chrome.";
+            } else {
+                window.location.href = "/webapp/?model=movenet";
+            }
+        }
         main();
     </script>
-    Your browser is being tested to determine if it can run the AI Tennis Coach demo...
+    Your browser is being tested to determine if it can run the AI Tennis Coach... <br><br><br>
+    <textarea id="output"></textarea>
+    <div id="incompatible"></div>
 </body>
 
 </html>
