@@ -12,7 +12,7 @@
 </head>
 
 <body>
-    <h1>MoveNet Inference</h1>
+    <h1>AI Tennis Coach demo page.</h1>
     <script>
 
         const pose_classes = ["backhand", "forehand", "neutral", "serve"];
@@ -80,22 +80,22 @@
         async function main() {
             const classificationModel = await loadModel('/models/tfjs/classification/357/model.json');
 
-            const sessionSimilarityBackhand = await ort.InferenceSession.create('/models/onnx/backhandalcaraz003_encoder/model.onnx');
-            const training_embeddings_backhand = await loadNpy('/models/movenet/embeddings/backhandalcaraz003.encoder.embeddings.npy');
+            const sessionSimilarityBackhand = await ort.InferenceSession.create('/models/encoders/backhandalcaraz003_encoder/model.onnx');
+            const training_embeddings_backhand = await loadNpy('/models/embeddings/backhandalcaraz003.encoder.embeddings.npy');
 
-            const sessionSimilarityForehand = await ort.InferenceSession.create('/models/onnx/forehandalcaraz003_encoder/model.onnx');
-            const training_embeddings_forehand = await loadNpy('/models/movenet/embeddings/forehandalcaraz003.encoder.embeddings.npy');
+            const sessionSimilarityForehand = await ort.InferenceSession.create('/models/encoders/forehandalcaraz003_encoder/model.onnx');
+            const training_embeddings_forehand = await loadNpy('/models/embeddings/forehandalcaraz003.encoder.embeddings.npy');
 
-            const sessionSimilarityServe = await ort.InferenceSession.create('/models/onnx/servealcaraz003_encoder/model.onnx');
-            const training_embeddings_serve = await loadNpy('/models/movenet/embeddings/servealcaraz003.encoder.embeddings.npy');
+            const sessionSimilarityServe = await ort.InferenceSession.create('/models/encoders/servealcaraz003_encoder/model.onnx');
+            const training_embeddings_serve = await loadNpy('/models/embeddings/servealcaraz003.encoder.embeddings.npy');
 
             const csvUrl = [
-                '/app/test_shots/backhand_1.csv',
-                '/app/test_shots/forehand_14.csv',
-                '/app/test_shots/forehand_7.csv',
-                '/app/test_shots/serve_8.csv',
-                '/app/test_shots/forehand_1.csv',
-                '/app/test_shots/debug_1.csv'
+                '/test_shots/backhand_1.csv',
+                '/test_shots/forehand_14.csv',
+                '/test_shots/forehand_7.csv',
+                '/test_shots/serve_8.csv',
+                '/test_shots/forehand_1.csv',
+                '/test_shots/debug_1.csv'
             ];
 
             csvUrl.forEach(async element => {
@@ -112,12 +112,15 @@
                 let training_embeddings;
                 let sessionSimilarityModel;
                 if (pose_classes[predicted_class].includes('backhand')) {
+                    console.log("Backhand pose detected, calculating similarity");
                     training_embeddings = training_embeddings_backhand;
                     sessionSimilarityModel = sessionSimilarityBackhand;
                 } else if (pose_classes[predicted_class].includes('forehand')) {
+                    console.log("Forehand pose detected, calculating similarity");
                     training_embeddings = training_embeddings_forehand;
                     sessionSimilarityModel = sessionSimilarityForehand;
                 } else if (pose_classes[predicted_class].includes('serve')) {
+                    console.log("Serve pose detected, calculating similarity");
                     training_embeddings = training_embeddings_serve;
                     sessionSimilarityModel = sessionSimilarityServe;
                 } else if (pose_classes[predicted_class].includes('neutral')) {
@@ -134,6 +137,7 @@
 
         main();
     </script>
+    Your browser is being tested to determine if it can run the AI Tennis Coach demo...
 </body>
 
 </html>
